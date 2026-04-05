@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FCM Push Notification Tester</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --border: #1e1e2e;
+      --accent: #00ff88;
+      --accent2: #ff6b35;
+      --accent3: #7b5ea7;
+      --text: #e8e8f0;
+      --muted: #555568;
+      --danger: #ff4757;
+      --warning: #ffa502;
+      --mono: 'JetBrains Mono', monospace;
+      --display: 'Syne', sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    /* Header */
+    header {
+      margin-bottom: 48px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0,255,136,0.08);
+      border: 1px solid rgba(0,255,136,0.2);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 2px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .badge .dot {
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    h1 {
+      font-family: var(--display);
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -1px;
+    }
+
+    h1 span { color: var(--accent); }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 10px;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 24px;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .card:focus-within::before { opacity: 1; }
+
+    .card-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Status indicator */
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .status-dot.ok { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+    .status-dot.error { background: var(--danger); }
+    .status-dot.warn { background: var(--warning); animation: pulse 1.5s infinite; }
+
+    /* Config inputs */
+    .config-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .field input, .field textarea {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 10px 12px;
+      border-radius: 3px;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+
+    .field input:focus, .field textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .field input::placeholder, .field textarea::placeholder {
+      color: var(--muted);
+    }
+
+    .field textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+    }
+
+    .btn-primary:hover {
+      background: transparent;
+      color: var(--accent);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border-color: var(--border);
+    }
+
+    .btn-ghost:hover {
+      color: var(--text);
+      border-color: var(--muted);
+    }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+      border-color: var(--danger);
+    }
+
+    .btn-danger:hover {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    /* Token display */
+    .token-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 12px;
+      font-size: 11px;
+      color: var(--accent);
+      word-break: break-all;
+      line-height: 1.6;
+      position: relative;
+      min-height: 48px;
+    }
+
+    .token-placeholder {
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 8px; right: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 1px;
+    }
+
+    .copy-btn:hover { color: var(--text); border-color: var(--muted); }
+    .copy-btn.copied { color: var(--accent); border-color: var(--accent); }
+
+    /* Log console */
+    .log-console {
+      background: #060609;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 16px;
+      height: 220px;
+      overflow-y: auto;
+      font-size: 11px;
+      line-height: 1.8;
+    }
+
+    .log-line {
+      display: flex;
+      gap: 12px;
+    }
+
+    .log-time { color: var(--muted); flex-shrink: 0; }
+    .log-level { flex-shrink: 0; font-weight: 700; width: 50px; }
+    .log-level.info { color: var(--accent); }
+    .log-level.warn { color: var(--warning); }
+    .log-level.error { color: var(--danger); }
+    .log-level.recv { color: #00d4ff; }
+    .log-msg { color: var(--text); word-break: break-all; }
+
+    .log-console::-webkit-scrollbar { width: 4px; }
+    .log-console::-webkit-scrollbar-track { background: transparent; }
+    .log-console::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* Notification popup */
+    .notif-popup {
+      position: fixed;
+      top: 24px; right: 24px;
+      max-width: 360px;
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      padding: 16px 20px;
+      z-index: 9999;
+      transform: translateX(120%);
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 0 40px rgba(0,255,136,0.15);
+    }
+
+    .notif-popup.show { transform: translateX(0); }
+
+    .notif-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .notif-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .notif-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      padding: 0;
+    }
+
+    .notif-body { font-size: 12px; color: var(--text); line-height: 1.5; }
+
+    /* Section separator */
+    .section-title {
+      font-family: var(--display);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin: 32px 0 12px;
+    }
+
+    /* Divider */
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 20px 0;
+    }
+
+    /* Scroll */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="badge">
+      <span class="dot"></span>
+      Firebase Cloud Messaging
+    </div>
+    <h1>FCM Push <span>Tester</span></h1>
+    <p class="subtitle">// Mini project test nhận thông báo từ Firebase · Fill config & go</p>
+  </header>
+
+  <!-- STATUS -->
+  <div class="card">
+    <div class="card-label">System Status</div>
+    <div class="status-row">
+      <div class="status-item">
+        <div class="status-dot" id="dot-browser"></div>
+        <span id="txt-browser">Browser support</span>
+      </div>
+      <div class="status-item">
+        <div class="status-dot" id="dot-notif"></div>
+        <span id="txt-notif">Notification permission</span>
+      </div>
+      <div class="status-item">
+        <div class="status-dot" id="dot-sw"></div>
+        <span id="txt-sw">Service Worker</span>
+      </div>
+      <div class="status-item">
+        <div class="status-dot" id="dot-fcm"></div>
+        <span id="txt-fcm">FCM Connected</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIG -->
+  <div class="card">
+    <div class="card-label">Firebase Config</div>
+    <div class="config-grid">
+      <div class="field">
+        <label>API Key</label>
+        <input type="text" id="cfg-apiKey" placeholder="AIzaSy..." />
+      </div>
+      <div class="field">
+        <label>Auth Domain</label>
+        <input type="text" id="cfg-authDomain" placeholder="your-app.firebaseapp.com" />
+      </div>
+      <div class="field">
+        <label>Project ID</label>
+        <input type="text" id="cfg-projectId" placeholder="your-project-id" />
+      </div>
+      <div class="field">
+        <label>App ID</label>
+        <input type="text" id="cfg-appId" placeholder="1:xxx:web:xxx" />
+      </div>
+      <div class="field">
+        <label>Messaging Sender ID</label>
+        <input type="text" id="cfg-messagingSenderId" placeholder="123456789" />
+      </div>
+      <div class="field">
+        <label>VAPID Key (Web Push Certificate)</label>
+        <input type="text" id="cfg-vapidKey" placeholder="BKd6... (Project Settings → Cloud Messaging)" />
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="initFCM()">⚡ Initialize FCM</button>
+      <button class="btn btn-ghost" onclick="saveConfig()">💾 Save to localStorage</button>
+      <button class="btn btn-ghost" onclick="loadConfig()">📂 Load Saved</button>
+    </div>
+  </div>
+
+  <!-- FCM TOKEN -->
+  <div class="card">
+    <div class="card-label">FCM Token</div>
+    <div class="token-box" id="token-display">
+      <span class="token-placeholder">Token sẽ xuất hiện ở đây sau khi khởi tạo...</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="copyToken()">📋 Copy Token</button>
+      <button class="btn btn-ghost" onclick="refreshToken()">🔄 Refresh Token</button>
+    </div>
+  </div>
+
+  <!-- SEND TEST (via BE) -->
+  <div class="card">
+    <div class="card-label">Send Test Notification (via BE)</div>
+    <div class="config-grid">
+      <div class="field">
+        <label>BE Endpoint URL</label>
+        <input type="text" id="be-url" placeholder="http://localhost:3000/api/send-notification" />
+      </div>
+      <div class="field">
+        <label>Title</label>
+        <input type="text" id="notif-title" value="🔔 Test Notification" />
+      </div>
+      <div class="field full">
+        <label>Body</label>
+        <input type="text" id="notif-body" value="Hello from FCM Tester! Timestamp: {time}" />
+      </div>
+      <div class="field full">
+        <label>Extra Data (JSON)</label>
+        <textarea id="notif-data" placeholder='{"key": "value"}'>{}</textarea>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="sendViaBackend()" id="btn-send">🚀 Send via Backend</button>
+      <button class="btn btn-ghost" onclick="sendForegroundLocal()">🔔 Local Foreground Test</button>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div class="card">
+    <div class="card-label">Console Log</div>
+    <div class="log-console" id="log-console">
+      <div class="log-line">
+        <span class="log-time">--:--:--</span>
+        <span class="log-level info">INFO</span>
+        <span class="log-msg">FCM Tester ready. Fill config & click Initialize.</span>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="clearLog()">🗑 Clear Log</button>
+    </div>
+  </div>
+</div>
+
+<!-- Notification Popup -->
+<div class="notif-popup" id="notif-popup">
+  <div class="notif-header">
+    <div class="notif-title-row">
+      <span>🔔</span>
+      <span id="popup-title">Notification</span>
+    </div>
+    <button class="notif-close" onclick="closePopup()">✕</button>
+  </div>
+  <div class="notif-body" id="popup-body"></div>
+</div>
+
+<!-- Firebase SDK (Compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
+
+<script>
+  let messaging = null;
+  let currentToken = null;
+
+  // ─── LOGGER ───────────────────────────────────────────────
+  function log(msg, level = 'info') {
+    const console = document.getElementById('log-console');
+    const now = new Date().toLocaleTimeString('vi-VN');
+    const line = document.createElement('div');
+    line.className = 'log-line';
+    line.innerHTML = `
+      <span class="log-time">${now}</span>
+      <span class="log-level ${level}">${level.toUpperCase()}</span>
+      <span class="log-msg">${msg}</span>
+    `;
+    console.appendChild(line);
+    console.scrollTop = console.scrollHeight;
+  }
+
+  function clearLog() {
+    document.getElementById('log-console').innerHTML = '';
+    log('Log cleared');
+  }
+
+  // ─── STATUS DOTS ──────────────────────────────────────────
+  function setStatus(id, state, text) {
+    const dot = document.getElementById('dot-' + id);
+    const txt = document.getElementById('txt-' + id);
+    dot.className = 'status-dot ' + state;
+    if (text) txt.textContent = text;
+  }
+
+  // ─── CHECK BROWSER SUPPORT ────────────────────────────────
+  function checkBrowser() {
+    if ('Notification' in window && 'serviceWorker' in navigator) {
+      setStatus('browser', 'ok', 'Browser supported');
+      log('Browser hỗ trợ Notifications + Service Worker ✓');
+      return true;
+    } else {
+      setStatus('browser', 'error', 'Not supported!');
+      log('Browser không hỗ trợ! Dùng Chrome/Edge/Firefox mới nhất.', 'error');
+      return false;
+    }
+  }
+
+  // ─── CONFIG HELPERS ───────────────────────────────────────
+  function getConfig() {
+    return {
+      apiKey: document.getElementById('cfg-apiKey').value.trim(),
+      authDomain: document.getElementById('cfg-authDomain').value.trim(),
+      projectId: document.getElementById('cfg-projectId').value.trim(),
+      appId: document.getElementById('cfg-appId').value.trim(),
+      messagingSenderId: document.getElementById('cfg-messagingSenderId').value.trim(),
+    };
+  }
+
+  function saveConfig() {
+    const cfg = {
+      ...getConfig(),
+      vapidKey: document.getElementById('cfg-vapidKey').value.trim(),
+      beUrl: document.getElementById('be-url').value.trim(),
+    };
+    localStorage.setItem('fcm_tester_config', JSON.stringify(cfg));
+    log('Config đã lưu vào localStorage 💾');
+  }
+
+  function loadConfig() {
+    const saved = localStorage.getItem('fcm_tester_config');
+    if (!saved) { log('Không tìm thấy config đã lưu', 'warn'); return; }
+    const cfg = JSON.parse(saved);
+    document.getElementById('cfg-apiKey').value = cfg.apiKey || '';
+    document.getElementById('cfg-authDomain').value = cfg.authDomain || '';
+    document.getElementById('cfg-projectId').value = cfg.projectId || '';
+    document.getElementById('cfg-appId').value = cfg.appId || '';
+    document.getElementById('cfg-messagingSenderId').value = cfg.messagingSenderId || '';
+    document.getElementById('cfg-vapidKey').value = cfg.vapidKey || '';
+    document.getElementById('be-url').value = cfg.beUrl || '';
+    log('Config đã load từ localStorage 📂');
+  }
+
+  // ─── INIT FCM ─────────────────────────────────────────────
+  async function initFCM() {
+    if (!checkBrowser()) return;
+
+    const firebaseConfig = getConfig();
+    const vapidKey = document.getElementById('cfg-vapidKey').value.trim();
+
+    if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !vapidKey) {
+      log('⚠ Thiếu config! Điền đầy đủ API Key, Project ID và VAPID Key.', 'warn');
+      return;
+    }
+
+    try {
+      // Init Firebase (handle re-init)
+      if (firebase.apps.length) firebase.apps.forEach(app => app.delete());
+      firebase.initializeApp(firebaseConfig);
+      log('Firebase App initialized ✓');
+
+      // Request notification permission
+      log('Đang xin quyền thông báo...');
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setStatus('notif', 'error', 'Permission denied!');
+        log('Người dùng từ chối quyền thông báo!', 'error');
+        return;
+      }
+      setStatus('notif', 'ok', 'Permission granted');
+      log('Notification permission granted ✓');
+
+      // Register service worker
+      log('Đang đăng ký Service Worker...');
+      const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      setStatus('sw', 'ok', 'SW registered');
+      log(`Service Worker registered: ${swReg.scope} ✓`);
+
+      // Get FCM token
+      messaging = firebase.messaging();
+
+      log('Đang lấy FCM token...');
+      currentToken = await messaging.getToken({ vapidKey, serviceWorkerRegistration: swReg });
+      
+
+      if (currentToken) {
+        displayToken(currentToken);
+        setStatus('fcm', 'ok', 'FCM Connected');
+        log(`FCM Token nhận được ✓ (${currentToken.substring(0, 20)}...)`, 'info');
+      }
+
+      // Listen foreground messages
+      messaging.onMessage((payload) => {
+        log(`📨 Foreground message received!`, 'recv');
+        log(`  Title: ${payload.notification?.title || '-'}`, 'recv');
+        log(`  Body: ${payload.notification?.body || '-'}`, 'recv');
+        if (payload.data) log(`  Data: ${JSON.stringify(payload.data)}`, 'recv');
+        showPopup(
+          payload.notification?.title || 'Notification',
+          payload.notification?.body || ''
+        );
+      });
+
+      log('🎉 FCM setup hoàn tất! Đang lắng nghe thông báo...', 'info');
+
+    } catch (err) {
+      log(`Lỗi: ${err.message}`, 'error');
+      setStatus('fcm', 'error', 'Error!');
+      console.error(err);
+    }
+  }
+
+  // ─── TOKEN DISPLAY ────────────────────────────────────────
+  function displayToken(token) {
+    const box = document.getElementById('token-display');
+    box.innerHTML = `${token}<button class="copy-btn" onclick="copyToken()" id="copy-btn">COPY</button>`;
+  }
+
+  function copyToken() {
+    if (!currentToken) { log('Chưa có token!', 'warn'); return; }
+    navigator.clipboard.writeText(currentToken).then(() => {
+      const btn = document.getElementById('copy-btn');
+      if (btn) { btn.textContent = 'COPIED!'; btn.classList.add('copied'); }
+      log('Token đã copy vào clipboard 📋');
+      setTimeout(() => { if (btn) { btn.textContent = 'COPY'; btn.classList.remove('copied'); } }, 2000);
+    });
+  }
+
+  async function refreshToken() {
+    if (!messaging) { log('Chưa init FCM! Click Initialize trước.', 'warn'); return; }
+    const vapidKey = document.getElementById('cfg-vapidKey').value.trim();
+    try {
+      await messaging.deleteToken();
+      currentToken = await messaging.getToken({ vapidKey });
+      displayToken(currentToken);
+      log('Token đã được refresh ✓');
+    } catch (err) {
+      log(`Lỗi refresh token: ${err.message}`, 'error');
+    }
+  }
+
+  // ─── SEND VIA BACKEND ────────────────────────────────────
+  async function sendViaBackend() {
+    if (!currentToken) { log('Chưa có FCM token! Init trước.', 'warn'); return; }
+
+    const beUrl = document.getElementById('be-url').value.trim();
+    if (!beUrl) { log('Thiếu Backend URL!', 'warn'); return; }
+
+    const title = document.getElementById('notif-title').value;
+    const body = document.getElementById('notif-body').value.replace('{time}', new Date().toLocaleTimeString('vi-VN'));
+    let data = {};
+    try { data = JSON.parse(document.getElementById('notif-data').value || '{}'); } catch { log('Data JSON không hợp lệ!', 'warn'); return; }
+
+    const payload = { token: currentToken, title, body, data };
+    log(`🚀 Gửi tới BE: ${beUrl}`);
+    log(`   Payload: ${JSON.stringify(payload)}`);
+
+    const btn = document.getElementById('btn-send');
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(beUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const resBody = await res.text();
+      if (res.ok) {
+        log(`✅ BE response ${res.status}: ${resBody}`, 'info');
+        log('Notification đã gửi! Chờ nhận...');
+      } else {
+        log(`❌ BE error ${res.status}: ${resBody}`, 'error');
+      }
+    } catch (err) {
+      log(`❌ Fetch error: ${err.message}`, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // ─── LOCAL FOREGROUND TEST ────────────────────────────────
+  function sendForegroundLocal() {
+    const title = document.getElementById('notif-title').value;
+    const body = document.getElementById('notif-body').value.replace('{time}', new Date().toLocaleTimeString('vi-VN'));
+    log('📣 Local foreground test (không qua FCM)', 'recv');
+    showPopup(title, body);
+  }
+
+  // ─── POPUP ───────────────────────────────────────────────
+  let popupTimer;
+  function showPopup(title, body) {
+    document.getElementById('popup-title').textContent = title;
+    document.getElementById('popup-body').textContent = body;
+    const popup = document.getElementById('notif-popup');
+    popup.classList.add('show');
+    clearTimeout(popupTimer);
+    popupTimer = setTimeout(closePopup, 6000);
+  }
+
+  function closePopup() {
+    document.getElementById('notif-popup').classList.remove('show');
+  }
+
+  // ─── INIT ────────────────────────────────────────────────
+  window.onload = () => {
+    checkBrowser();
+    loadConfig();
+
+    // Check existing permission
+    if (Notification.permission === 'granted') {
+      setStatus('notif', 'ok', 'Permission granted');
+    } else if (Notification.permission === 'denied') {
+      setStatus('notif', 'error', 'Permission denied');
+    }
+  };
+</script>
+</body>
+</html>
